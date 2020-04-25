@@ -13,9 +13,6 @@ from vbulletin.items import PostItem, UserItem, ThreadItem
 # Adapted from
 # http://doc.scrapy.org/en/stable/topics/item-pipeline.html#write-items-to-mongodb
 
-class TestPipeline(object):
-    def process_item(self, item, spider):
-        return item
 
 class MongoPipeline(object):
 

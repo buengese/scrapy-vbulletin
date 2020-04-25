@@ -6,7 +6,63 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+import logging
+import cloudscraper
 
+class CloudFlareMiddleware(object):
+    """Scrapy middleware to bypass the CloudFlare's anti-bot protection"""
+    logger = logging.getLogger(__name__)
+
+    @staticmethod
+    def is_cloudflare_challenge(response):
+        """Test if the given response contains the cloudflare's anti-bot protection"""
+
+        return (
+                (response.status == 503 or response.status == 403)
+                and response.headers.get('Server', '').startswith(b'cloudflare')
+                and 'challenge' in response.text
+        )
+
+    def process_response(self, request, response, spider):
+        """Handle the a Scrapy response"""
+
+        if not self.is_cloudflare_challenge(response):
+            return response
+
+
+        self.logger.info(
+            'Cloudflare protection detected on %s, trying to bypass...',
+            response.url
+        )
+
+        if spider.settings.get("CAPTCHA_SOLVER"):
+            cloudflare_tokens, __ = cloudscraper.get_tokens(
+                request.url,
+                browser={
+                    'custom': spider.settings.get('USER_AGENT'),
+                },
+                recaptcha={
+                    'provider': spider.settings.get('CAPTCHA_PROVIDER'),
+                    'api_key': spider.settings.get('CAPTCHA_API_KEY'),
+                }
+            )
+        else:
+            cloudflare_tokens, __ = cloudscraper.get_tokens(
+                request.url,
+                browser={
+                    'custom': spider.settings.get('USER_AGENT'),
+                }
+            )
+        self.logger.info('Cloudflare tokens: %s', str(cloudflare_tokens))
+        self.logger.info(
+            'Successfully bypassed the protection for %s, re-scheduling the request',
+            response.url
+        )
+
+        request.cookies.update(cloudflare_tokens)
+        request.priority = 99999
+
+        return request
 
 class VbulletinSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -82,10 +138,6 @@ class VbulletinDownloaderMiddleware(object):
 
     def process_response(self, request, response, spider):
         # Called with the response returned from the downloader.
-        print(response.status)
-        print(response.headers.get('Server', ''))
-        print(response.text)
-        print(response)
 
         # Must either;
         # - return a Response object
