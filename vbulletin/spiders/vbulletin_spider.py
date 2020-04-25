@@ -42,7 +42,6 @@ class VbulletinSpider(scrapy.Spider):
         forum_urls = response.xpath('.//td[contains(@id,"f")]/div/a[not(contains(@href,"wiki"))]/@href').extract()
         for url in forum_urls:
             yield scrapy.Request(response.urljoin(url), callback=self.parse_forum)
-            return
 
     def parse_forum(self, response):
         logging.info("STARTING NEW FORUM SCRAPE (GETTING THREADS)")
@@ -78,7 +77,7 @@ class VbulletinSpider(scrapy.Spider):
             try:
                 p['timestamp'] = post.xpath(".//tr/td[@style='font-weight:normal'][1]/text()").extract()[1].strip()
 
-                p['message'] = post.xpath(".//*[contains(@id,'post_message_')]").extract()
+                p['message'] = post.xpath(".//*[contains(@id,'post_message_')]").extract_first()
                 p['post_id'] = to_int(post.re_first('post\_message\_(\d+)'))
 
                 # p['post_no'] = to_int(post.xpath(".//tr/td/div[@class='normal'][1]/a//text()").extract_first())
